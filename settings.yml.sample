@@ -1,0 +1,5 @@
+---
+server: 'https://puppet.localhost:8081'
+ssl_cert: /var/lib/puppet/ssl/certs/localserver.pem
+ssl_key:  /var/lib/puppet/ssl/private_keys/localserver.pem
+ssl_ca:   /var/lib/puppet/ssl/certs/ca.pem
