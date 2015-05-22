@@ -5,6 +5,12 @@ require 'yaml'
 require 'json'
 require 'optparse'
 
+$node_deployment = ENV['NODE_DEPLOYMENT']
+unless $node_deployment
+  puts "NODE_DEPLOYMENT must be set"
+  exit 1
+end
+
 class Inventory
 
   def initialize(settings)
@@ -59,7 +65,8 @@ class Inventory
       response = @client.request(
         'resources',
         [:and,
-          ['=', 'type', 'Nodes::Exported_metadata']
+          ['=', 'type', 'Nodes::Exported_metadata'],
+          ['=', ['parameter','node_deployment'], $node_deployment]
         ]
       )
       
@@ -71,7 +78,7 @@ class Inventory
         app = params['node_app']
         tier = params['node_tier']
         deployment = params['node_deployment']
-        group_name = "#{deployment}_#{app}_#{tier}"
+        group_name = "#{app}_#{tier}"
         data[group_name] ||= {}
         data[group_name]['hosts'] ||= []
         data[group_name]['hosts'].push(host)
