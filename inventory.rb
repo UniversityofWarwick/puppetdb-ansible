@@ -4,6 +4,7 @@ require 'puppetdb'
 require 'yaml'
 require 'json'
 require 'optparse'
+require 'pp'
 
 $node_deployment = ENV['NODE_DEPLOYMENT']
 unless $node_deployment
@@ -33,35 +34,31 @@ class Inventory
     (response.data[0] || {})['certname']
   end
 
-  def fetch_hosts_metadata()
-    response = @client.request('facts', ['~', 'name', '.*'])
-    what = response.data.group_by { |fact|
-      fact['certname'] 
-    }.map { |certname, facts|
-      [
-        certname, 
-        Hash[facts.map { |fact| [ fact['name'], fact['value'] ] }]
-      ]
-    }
-    Hash[what]
+  def fetch_hosts_metadata(certnames)
+    if certnames.empty?
+      {}
+    else
+      query = [:or] + certnames.map {|certname|
+        ['=','certname',certname]
+      }
+      response = @client.request('facts', query)
+      what = response.data.group_by { |fact|
+        fact['certname'] 
+      }.map { |certname, facts|
+        [
+          certname, 
+          Hash[facts.map { |fact| [ fact['name'], fact['value'] ] }]
+        ]
+      }
+      Hash[what]
+    end
   end
 
   def process(mode, hostname=nil)
     
     data = {}
     if mode == :list
-    
-      nodes_response = @client.request('nodes', [:'~','name','.*'])
-      nodes = nodes_response.data
-      data = {
-        'all' => {
-          'hosts' => nodes.map { |res| res['name'] }.uniq
-        },
-        '_meta' => {
-          'hostvars' => fetch_hosts_metadata() 
-        }
-      }
-      
+   
       response = @client.request(
         'resources',
         [:and,
@@ -71,6 +68,29 @@ class Inventory
       )
       
       items = response.data
+      certnames = items.map do |item|
+        item['certname']
+      end
+
+      nodes = if certnames.empty?
+        []
+      else
+        nodes_query = [:or] + certnames.map { |certname|
+          ['=', 'name', certname] 
+        }
+
+        nodes_response = @client.request('nodes', nodes_query)
+        nodes_response.data
+      end
+
+      data = {
+        'all' => {
+          'hosts' => nodes.map { |res| res['name'] }.uniq
+        },
+        '_meta' => {
+          'hostvars' => fetch_hosts_metadata(certnames) 
+        }
+      }
       
       items.each do |item|
         host = item['certname']
